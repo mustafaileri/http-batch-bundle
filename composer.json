@@ -6,7 +6,11 @@
         {
             "name": "IdeasoftLabs",
             "email": "labs@ideasoft.com.tr"
-        }
+        },
+		{
+			"name": "Christoher Wittor - proWIN Winter GmbH",
+			"email": "christopher.wittor@prowin.net"
+		}
     ],
     "require": {
         "php": ">=5.5.9",
