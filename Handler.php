@@ -3,10 +3,10 @@
 namespace Ideasoft\HttpBatchBundle;
 
 use Ideasoft\HttpBatchBundle\HTTP\ContentParser;
-use Ideasoft\HttpBatchBundle\Message\Response;
 use Ideasoft\HttpBatchBundle\Message\Transaction;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -50,7 +50,7 @@ class Handler {
 	 * @param Request $request
 	 *
 	 * @return Response
-	 * @throws \HttpHeaderException
+	 * @throws \Exception
 	 */
 	public function handle( Request $request ) {
 
@@ -64,12 +64,11 @@ class Handler {
 	 * @param Request $request
 	 *
 	 * @return Response
-	 * @throws \HttpHeaderException
+	 * @throws \Exception
 	 */
 	private function parseRequest( Request $request ) {
 
 		$this->getBatchHeader( $request );
-		$transactions = $this->getTransactions( $request );
 		try {
 			$transactions = $this->getTransactions( $request );
 		}
@@ -84,6 +83,14 @@ class Handler {
 				                         ),
 			                         ), $e->getStatusCode() );
 		}
+		catch ( \Exception $e ) {
+			return new JsonResponse( array(
+				                         'result' => 'error',
+				                         'errors' => array(
+					                         array( 'message' => $e->getMessage(), 'type' => 'system_error' ),
+				                         ),
+			                         ), Response::HTTP_INTERNAL_SERVER_ERROR );
+		}
 
 		return $this->getBatchRequestResponse( $transactions );
 
@@ -93,7 +100,6 @@ class Handler {
 	 * @param Request $request
 	 *
 	 * @return mixed
-	 * @throws \HttpHeaderException
 	 */
 	private function getBatchHeader( Request $request ) {
 
@@ -109,12 +115,12 @@ class Handler {
 	 * @param string $contentType
 	 *
 	 * @return string
-	 * @throws \HttpHeaderException
+	 * @throws BadRequestHttpException
 	 */
 	private function parseBoundary( $contentType ) {
 
 		if ( ! $contentType ) {
-			throw new \HttpHeaderException( "Content-type can not be found in header" );
+			throw new BadRequestHttpException( "Content-type can not be found in header" );
 		}
 		$contentTypeData = explode( ";", $contentType );
 
@@ -136,7 +142,7 @@ class Handler {
 	private function parseContentId( $request_header ) {
 
 		if ( ! $request_header ) {
-			throw new \HttpHeaderException( "Subrequest header can not be found" );
+			throw new BadRequestHttpException( "Subrequest header can not be found" );
 		}
 		$request_header_data = explode( PHP_EOL, $request_header );
 
@@ -153,7 +159,7 @@ class Handler {
 			} // if
 		} // foreach
 
-		throw new \HttpHeaderException( "Content-id can not be found in subrequest header" );
+		throw new BadRequestHttpException( "Content-id can not be found in subrequest header" );
 
 	} // perseContentId
 
@@ -161,6 +167,7 @@ class Handler {
 	 * @param Request $request
 	 *
 	 * @return array
+	 * @throws HttpException
 	 * @throws \HttpHeaderException
 	 */
 	private function getTransactions( Request $request ) {
