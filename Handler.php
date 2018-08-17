@@ -5,8 +5,10 @@ namespace Ideasoft\HttpBatchBundle;
 use Ideasoft\HttpBatchBundle\HTTP\ContentParser;
 use Ideasoft\HttpBatchBundle\Message\Response;
 use Ideasoft\HttpBatchBundle\Message\Transaction;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\Kernel;
 
@@ -29,11 +31,18 @@ class Handler {
 	private $batchRequest;
 
 	/**
+	 * @var integer
+	 */
+	private $max_calls;
+
+	/**
 	 * @param HttpKernelInterface $kernel
 	 */
-	public function __construct( HttpKernelInterface $kernel ) {
+	public function __construct( HttpKernelInterface $kernel, $max_calls ) {
 
 		$this->kernel = $kernel;
+
+		$this->max_calls = $max_calls;
 
 	}
 
@@ -61,6 +70,20 @@ class Handler {
 
 		$this->getBatchHeader( $request );
 		$transactions = $this->getTransactions( $request );
+		try {
+			$transactions = $this->getTransactions( $request );
+		}
+		catch ( HttpException $e ) {
+			return new JsonResponse( array(
+				                         'result' => 'error',
+				                         'errors' => array(
+					                         array(
+						                         'message' => $e->getMessage(),
+						                         'type'    => 'client_error',
+					                         ),
+				                         ),
+			                         ), $e->getStatusCode() );
+		}
 
 		return $this->getBatchRequestResponse( $transactions );
 
@@ -155,6 +178,14 @@ class Handler {
 
 				return strlen( $data ) > 0;
 			} );
+
+		if ( count( $subRequestsAsString ) > $this->max_calls ) {
+			throw new HttpException( Response::HTTP_REQUEST_ENTITY_TOO_LARGE,
+			                         sprintf( "Maximum call limit exceeded (found %d). Please consider to send only %d calls per request.",
+			                                  count( $subRequestsAsString ),
+			                                  $this->max_calls ) );
+		}
+
 		$subRequestsAsString = array_values( $subRequestsAsString );
 		foreach ( $subRequestsAsString as $item ) {
 			$item          = explode( PHP_EOL . PHP_EOL, $item, 2 );

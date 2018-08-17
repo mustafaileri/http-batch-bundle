@@ -19,6 +19,13 @@ class HttpBatchExtension extends Extension {
 
 		$loader->load( 'services.yml' );
 
+		$configuration = new HttpBatchConfiguration();
+
+		$config = $this->processConfiguration( $configuration, $configs );
+
+		$container->getDefinition( 'http_batch.handler' )
+		          ->replaceArgument( '$max_calls', $config[ 'max_calls_in_a_request' ] );
+
 	} // load
 
 } // HttpBatchExtension
