@@ -195,7 +195,7 @@ class Handler {
 
 		$subRequestsAsString = array_values( $subRequestsAsString );
 		foreach ( $subRequestsAsString as $item ) {
-			$item          = explode( PHP_EOL . PHP_EOL, $item, 2 );
+			$item          = preg_split("/(?>\r{2}|\n{2}|(?>\r\n){2})/", trim($item), 2);
 			$requestHeader = $item[ 0 ];
 			$requestString = $item[ 1 ];
 

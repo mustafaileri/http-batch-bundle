@@ -220,7 +220,7 @@ class ContentParser {
 
 		$data = [];
 
-		preg_match( '/name=\"([^\"]*)\"[\n|\r]+([^\n\r]*)?$/s', $string, $match );
+		preg_match( '/name=\"([^\"]*)\"(?>\r{2}|\n{2}|(?>\r\n){2})(.*)$/s', trim($string), $match );
 
 		if ( preg_match( '/^(.*)\[\]$/i', $match[ 1 ], $tmp ) ) {
 			$data[ $tmp[ 1 ] ][] = ( ! empty( $match[ 2 ] ) ? $match[ 2 ] : '' );
