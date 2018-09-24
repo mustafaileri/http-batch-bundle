@@ -28,14 +28,6 @@ http_batch:
     type:     annotation
 ```
 
-#### Sevice Registration
-Register HttpBatchBundle services. Add this line to your services.yml
-```yml
-imports:
-    ...
-    - { resource: "@HttpBatchBundle/Resources/config/services.yml" }
-```
-
 That's all. Now you can use http batch implementation on your symfony project.
 
 Your batch request url is http://your-domain/batch. 

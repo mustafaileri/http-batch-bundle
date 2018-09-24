@@ -2,7 +2,8 @@ services:
     http_batch.handler:
         class: Ideasoft\HttpBatchBundle\Handler
         arguments:
-            - '@kernel'
+            $kernel: '@kernel'
+            $max_calls: 0
 
     http_batch.request.listener:
         class: Ideasoft\HttpBatchBundle\EventListener\RequestListener
