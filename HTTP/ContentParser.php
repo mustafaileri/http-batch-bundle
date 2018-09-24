@@ -7,139 +7,159 @@ namespace Ideasoft\HttpBatchBundle\HTTP;
 /**
  * Class ContentParser
  * Handles a input stream with http messages
+ *
  * @see     https://gist.github.com/jas-/5c3fdc26fedd11cb9fb5#file-class-stream-php
  * @see     https://stackoverflow.com/questions/5483851/manually-parse-raw-multipart-form-data-data-with-php
  *
  * @package Ideasoft\HttpBatchBundle\HTTP
  */
-class ContentParser {
+class ContentParser
+{
 
 
-	/**
-	 * @abstract Raw input stream
-	 */
-	protected $input;
+    /**
+     * @abstract Raw input stream
+     */
+    protected $input;
 
-	/**
-	 * @param string $boundary
-	 * @param string $content
-	 * @param array  $data stream
-	 *
-	 * @throws \HttpHeaderException
-	 */
-	private function __construct( $boundary, $content, array &$data ) {
+    /**
+     * @param string $content_type
+     * @param string $content
+     * @param array  $data stream
+     *
+     * @throws \HttpHeaderException
+     */
+    private function __construct( $content_type, $content, array &$data )
+    {
 
-		$this->input = $content;
+        $this->input = $content;
 
-		if ( strpos( $boundary, 'boundary=' ) !== false ) {
-			$boundary = $this->boundary( $boundary );
-		}
+        if ( strpos( $content_type, 'boundary=' ) !== false ) {
+            $boundary = $this->boundary( $content_type );
+        }
 
-		$blocks = $this->split( $boundary );
+        $blocks = $this->split( $boundary );
 
-		$data = $this->blocks( $blocks );
+        $data = $this->blocks( $blocks );
 
-		return $data;
+        return $data;
 
-	} // __construct
+    } // __construct
 
-	/**
-	 * @param string $boundary
-	 * @param string $content
-	 *
-	 * @return array
-	 * @throws \HttpHeaderException
-	 */
-	public static function parse( $boundary, $content ) {
+    /**
+     * @param string $content_type
+     * @param string $content
+     *
+     * @return array
+     * @throws \HttpHeaderException
+     */
+    public static function parse( $content_type, $content )
+    {
 
-		$params = [];
+        $params = [];
 
-		new self( $boundary, $content, $params );
+        if ( strpos( $content_type, 'application/x-www-form-urlencoded' ) !== false ) {
+            parse_str( $content, $params );
+        }
+        else {
+            new self( $content_type, $content, $params );
+            if ( array_key_exists( 'post', $params ) ) {
+                $params = array_pop($params);
+            }
+            else {
+                $params = [];
+            } // if else
+        } // if else
 
-		return $params;
-	}
+        return $params;
+    }
 
-	/**
-	 * @param string $contentType
-	 *
-	 * @return array
-	 * @throws \HttpHeaderException
-	 */
-	private function boundary( $contentType ) {
+    /**
+     * @param string $contentType
+     *
+     * @return array
+     * @throws \HttpHeaderException
+     */
+    private function boundary( $contentType )
+    {
 
-		if ( ! $contentType ) {
-			throw new \HttpHeaderException( "Content-type can not be found in header" );
-		} // if
-		$contentTypeData = explode( ";", $contentType );
+        if ( !$contentType ) {
+            throw new \HttpHeaderException( "Content-type can not be found in header" );
+        } // if
+        $contentTypeData = explode( ";", $contentType );
 
-		foreach ( $contentTypeData as $data ) {
-			$contentTypePart = explode( "=", $data );
-			if ( sizeof( $contentTypePart ) == 2 && trim( $contentTypePart[ 0 ] ) == "boundary" ) {
-				$boundary = trim( $contentTypePart[ 1 ] );
-				break;
-			} // if
-		} // foreach
+        foreach ( $contentTypeData as $data ) {
+            $contentTypePart = explode( "=", $data );
+            if ( sizeof( $contentTypePart ) == 2 && trim( $contentTypePart[ 0 ] ) == "boundary" ) {
+                $boundary = trim( $contentTypePart[ 1 ] );
+                break;
+            } // if
+        } // foreach
 
-		if ( isset( $boundary ) ) {
-			return $boundary;
-		} else {
-			throw new \HttpHeaderException( "Boundary can not be found." );
-		} // if
+        if ( isset( $boundary ) ) {
+            return $boundary;
+        }
+        else {
+            throw new \HttpHeaderException( "Boundary can not be found." );
+        } // if
 
-	} // boundary
+    } // boundary
 
-	/**
-	 * @param $boundary string
-	 *
-	 * @return array
-	 */
-	private function split( $boundary ) {
+    /**
+     * @param $boundary string
+     *
+     * @return array
+     */
+    private function split( $boundary )
+    {
 
-		$result = preg_split( "/-+$boundary/", $this->input );
-		array_pop( $result );
+        $result = preg_split( "/-+$boundary/", $this->input );
+        array_pop( $result );
 
-		return $result;
+        return $result;
 
-	} // split
+    } // split
 
-	/**
-	 * @param $array array
-	 *
-	 * @return array
-	 */
-	private function blocks( $array ) {
+    /**
+     * @param $array array
+     *
+     * @return array
+     */
+    private function blocks( $array )
+    {
 
-		$results = [
-			'post' => [],
-			//			'file' => [],
-		];
+        $results = [
+            'post' => [],
+            //			'file' => [],
+        ];
 
-		foreach ( $array as $key => $value ) {
-			if ( empty( $value ) ) {
-				continue;
-			} // if
+        foreach ( $array as $key => $value ) {
+            if ( empty( $value ) ) {
+                continue;
+            } // if
 
-			$block = $this->decide( $value );
+            $block = $this->decide( $value );
 
-			if ( count( $block[ 'post' ] ) > 0 ) {
-				array_push( $results[ 'post' ], $block[ 'post' ] );
-			} // if
+            if ( count( $block[ 'post' ] ) > 0 ) {
+                array_push( $results[ 'post' ], $block[ 'post' ] );
+            } // if
 
 //			if ( count( $block[ 'file' ] ) > 0 ) {
 //				array_push( $results[ 'file' ], $block[ 'file' ] );
 //			} // if
-		} // foreach
+        } // foreach
 
-		return $this->merge( $results );
+        return $this->merge( $results );
 
-	} // blocks
+    } // blocks
 
-	/**
-	 * @param $string string
-	 *
-	 * @return array
-	 */
-	private function decide( $string ) {
+    /**
+     * @param $string string
+     *
+     * @return array
+     */
+    private function decide( $string )
+    {
 
 //		if ( strpos( $string, 'application/octet-stream' ) !== false ) {
 //			return [
@@ -155,18 +175,18 @@ class ContentParser {
 //			];
 //		} // if
 
-		return [
-			'post' => $this->post( $string ),
-			//			'file' => [],
-		];
+        return [
+            'post' => $this->post( $string ),
+            //			'file' => [],
+        ];
 
-	} // decide
+    } // decide
 
-	/**
-	 * @param $string
-	 *
-	 * @return array
-	 */
+    /**
+     * @param $string
+     *
+     * @return array
+     */
 //	private function file( $string ) {
 //
 //		preg_match( '/name=\"([^\"]*)\".*stream[\n|\r]+([^\n\r].*)?$/s', $string, $match );
@@ -177,11 +197,11 @@ class ContentParser {
 //
 //	} // file
 
-	/**
-	 * @param $string
-	 *
-	 * @return array
-	 */
+    /**
+     * @param $string
+     *
+     * @return array
+     */
 //	private function file_stream( $string ) {
 //
 //		$data = [];
@@ -211,54 +231,58 @@ class ContentParser {
 //
 //	} // file_stream
 
-	/**
-	 * @param $string
-	 *
-	 * @return array
-	 */
-	private function post( $string ) {
+    /**
+     * @param $string
+     *
+     * @return array
+     */
+    private function post( $string )
+    {
 
-		$data = [];
+        $data = [];
 
-		preg_match( '/name=\"([^\"]*)\"(?>\r{2}|\n{2}|(?>\r\n){2})(.*)$/s', trim($string), $match );
+        preg_match( '/name=\"([^\"]*)\"(?>\r{2}|\n{2}|(?>\r\n){2})(.*)$/s', trim( $string ), $match );
 
-		if ( preg_match( '/^(.*)\[\]$/i', $match[ 1 ], $tmp ) ) {
-			$data[ $tmp[ 1 ] ][] = ( ! empty( $match[ 2 ] ) ? $match[ 2 ] : '' );
-		} else {
-			$data[ $match[ 1 ] ] = ( ! empty( $match[ 2 ] ) ? $match[ 2 ] : '' );
-		} // if
+        if ( preg_match( '/^(.*)\[\]$/i', $match[ 1 ], $tmp ) ) {
+            $data[ $tmp[ 1 ] ][] = ( !empty( $match[ 2 ] ) ? $match[ 2 ] : '' );
+        }
+        else {
+            $data[ $match[ 1 ] ] = ( !empty( $match[ 2 ] ) ? $match[ 2 ] : '' );
+        } // if
 
-		return $data;
+        return $data;
 
-	} // post
+    } // post
 
-	/**
-	 * @param $array array
-	 *
-	 * Ugly ugly ugly
-	 *
-	 * @return array
-	 */
-	private function merge( $array ) {
+    /**
+     * @param $array array
+     *
+     * Ugly ugly ugly
+     *
+     * @return array
+     */
+    private function merge( $array )
+    {
 
-		$results = [
-			'post' => [],
-			//			'file' => [],
-		];
+        $results = [
+            'post' => [],
+            //			'file' => [],
+        ];
 
-		if ( count( $array[ 'post' ] ) > 0 ) {
-			foreach ( $array[ 'post' ] as $key => $value ) {
-				foreach ( $value as $k => $v ) {
-					if ( is_array( $v ) ) {
-						foreach ( $v as $kk => $vv ) {
-							$results[ 'post' ][ $k ][] = $vv;
-						} // foreach
-					} else {
-						$results[ 'post' ][ $k ] = $v;
-					} // if
-				} // foeach
-			} // foeach
-		} // if
+        if ( count( $array[ 'post' ] ) > 0 ) {
+            foreach ( $array[ 'post' ] as $key => $value ) {
+                foreach ( $value as $k => $v ) {
+                    if ( is_array( $v ) ) {
+                        foreach ( $v as $kk => $vv ) {
+                            $results[ 'post' ][ $k ][] = $vv;
+                        } // foreach
+                    }
+                    else {
+                        $results[ 'post' ][ $k ] = $v;
+                    } // if
+                } // foeach
+            } // foeach
+        } // if
 
 //		if ( count( $array[ 'file' ] ) > 0 ) {
 //			foreach ( $array[ 'file' ] as $key => $value ) {
@@ -278,8 +302,8 @@ class ContentParser {
 //			} // foreach
 //		} // if
 
-		return $results;
+        return $results;
 
-	} // merge
+    } // merge
 
 } // ContentParser
